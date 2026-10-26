@@ -34,11 +34,11 @@ git push -u origin main"""
         NativeCodeFileItem(
             id = "github_actions_android_yml",
             fileName = ".github/workflows/android-build.yml",
-            platformBadge = "GITHUB ACTIONS CI/CD (Tự động Build Debug & Release APK)",
+            platformBadge = "GITHUB ACTIONS CI/CD (Build from Scratch -> HanViet-FlashHUD-APK)",
             language = "YAML Workflow",
-            summary = "File cấu hình GitHub Actions tự động cài đặt Node.js 20, Java JDK 17, Android SDK, chạy build Web, đồng bộ Capacitor (npx cap add android & npx cap sync), biên dịch Gradle ra file .APK và tải lên GitHub Artifacts.",
+            summary = "Quy trình CI/CD Xây dựng từ số 0 (Build from Scratch): Tự động cài Node.js 20, Java JDK 17, Android SDK, chạy npm install & npm run build, cài @capacitor/core @capacitor/android @capacitor/cli, chạy npx cap init + npx cap add android + npx cap sync để sinh ./gradlew chuẩn, biên dịch assembleDebug và upload HanViet-FlashHUD-APK.",
             code = """
-name: Build Android APK (Capacitor + Native Gradle)
+name: Build Android APK from Scratch (Capacitor CI/CD)
 
 on:
   push:
@@ -49,15 +49,15 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # Cho phép bấm nút "Run workflow" thủ công ngay trên tab Actions của GitHub
+  workflow_dispatch:
 
 jobs:
-  build-android-apk:
-    name: Build Debug & Release APK
+  build-apk:
+    name: Build HanViet-FlashHUD-APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1. Checkout Source Code
+      - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
       - name: 2. Setup Node.js 20
@@ -74,183 +74,96 @@ jobs:
       - name: 4. Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: 5. Accept Android SDK Licenses
+      - name: 5. Install Dependencies & Build Web Assets
         run: |
-          yes | sdkmanager --licenses || true
+          if [ ! -f "package.json" ]; then
+            npm init -y
+          fi
+          npm install --legacy-peer-deps
+          npm run build --if-present || true
 
-      - name: 6. Build Web & Sync Capacitor Android
-        run: |
-          if [ -f "package.json" ]; then
-            npm install --legacy-peer-deps
-            npm run build
-            if [ ! -f "settings.gradle.kts" ] && [ ! -f "settings.gradle" ]; then
-              if [ ! -d "android" ]; then
-                npx cap add android
-              fi
-              npx cap sync android
+          if [ ! -d "dist" ] && [ -d "build" ] && [ -f "build/index.html" ]; then
+            cp -r build dist
+          fi
+
+          mkdir -p dist
+          if [ ! -f "dist/index.html" ]; then
+            if [ -f "index.html" ]; then
+              cp index.html dist/index.html
             else
-              npx cap sync android || true
+              echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>HanViet</title></head><body style="background:#020617;color:#fff"><h2>HanViet FlashHUD</h2></body></html>' > dist/index.html
             fi
           fi
 
-      - name: 7. Prepare .env & Signing Keystores
-        env:
-          STORE_PASSWORD: __DOLLAR__{{ secrets.STORE_PASSWORD || 'android' }}
-          KEY_PASSWORD: __DOLLAR__{{ secrets.KEY_PASSWORD || 'android' }}
+      - name: 6. Install Capacitor Core, Android & CLI
         run: |
-          GRADLE_DIR="."
-          if [ ! -f "settings.gradle.kts" ] && [ ! -f "settings.gradle" ] && [ -d "android" ]; then
-            GRADLE_DIR="android"
-          fi
-          echo "GRADLE_DIR=__DOLLAR__GRADLE_DIR" >> __DOLLAR__GITHUB_ENV
+          npm i @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
+          npm i -D @capacitor/cli@6 --legacy-peer-deps
 
-          if [ -f "__DOLLAR__GRADLE_DIR/.env.example" ] && [ ! -f "__DOLLAR__GRADLE_DIR/.env" ]; then
-            cp "__DOLLAR__GRADLE_DIR/.env.example" "__DOLLAR__GRADLE_DIR/.env"
-          fi
-
-          if [ -f "__DOLLAR__GRADLE_DIR/debug.keystore.base64" ] && [ ! -f "__DOLLAR__GRADLE_DIR/debug.keystore" ]; then
-            base64 -d "__DOLLAR__GRADLE_DIR/debug.keystore.base64" > "__DOLLAR__GRADLE_DIR/debug.keystore"
-          elif [ ! -f "__DOLLAR__GRADLE_DIR/debug.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore "__DOLLAR__GRADLE_DIR/debug.keystore" \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
-          if [ ! -f "__DOLLAR__GRADLE_DIR/my-upload-key.jks" ]; then
-            keytool -genkeypair -v \
-              -keystore "__DOLLAR__GRADLE_DIR/my-upload-key.jks" \
-              -storepass "__DOLLAR__STORE_PASSWORD" -alias upload -keypass "__DOLLAR__KEY_PASSWORD" \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=HanViet Studio,OU=Mobile,O=HanViet,L=HCMC,S=VN,C=VN"
-          fi
-
-      - name: 8. Build Debug & Release APK with Gradle
-        working-directory: __DOLLAR__{{ env.GRADLE_DIR }}
-        env:
-          STORE_PASSWORD: __DOLLAR__{{ secrets.STORE_PASSWORD || 'android' }}
-          KEY_PASSWORD: __DOLLAR__{{ secrets.KEY_PASSWORD || 'android' }}
+      - name: 7. Initialize Capacitor & Add Android Platform from Scratch
         run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
-          else
-            gradle assembleDebug assembleRelease --no-daemon --stacktrace
-          fi
+          rm -rf android capacitor.config.json capacitor.config.ts
+          npx cap init "HanViet" "com.hanviet.app" --web-dir dist
+          npx cap add android
+          npx cap sync
 
-      - name: 9. Upload Debug APK to GitHub Artifacts
+      - name: 8. Grant Permission & Build Debug APK with Gradlew
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: 9. Upload HanViet-FlashHUD-APK to GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: HanViet-Studio-Debug-APK
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn
+          name: HanViet-FlashHUD-APK
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
           retention-days: 30
-
-      - name: 10. Upload Release APK to GitHub Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: HanViet-Studio-Release-APK
-          path: |
-            app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/apk/release/*.apk
-          if-no-files-found: warn
-          retention-days: 30
-""".trimIndent().replace("__DOLLAR__", "$")
+""".trimIndent()
         ),
 
         NativeCodeFileItem(
             id = "capacitor_config_json",
             fileName = "capacitor.config.json",
-            platformBadge = "CAPACITOR CONFIG (JSON & TypeScript)",
-            language = "JSON / TypeScript",
-            summary = "Cấu hình tích hợp Capacitor 6 chuẩn cho dự án HánViệt FlashHUD (bao gồm cả phiên bản capacitor.config.json và capacitor.config.ts).",
+            platformBadge = "CAPACITOR CONFIG (com.hanviet.app)",
+            language = "JSON",
+            summary = "Cấu hình Capacitor khớp với lệnh npx cap init \"HanViet\" \"com.hanviet.app\" --web-dir dist.",
             code = """
-// === FILE 1: capacitor.config.json ===
 {
-  "appId": "com.aistudio.hanvietflashhud.kxmpzq",
-  "appName": "HánViệt FlashHUD",
+  "appId": "com.hanviet.app",
+  "appName": "HanViet",
   "webDir": "dist",
-  "bundledWebRuntime": false,
-  "server": {
-    "androidScheme": "https",
-    "cleartext": true
-  },
-  "android": {
-    "allowMixedContent": true,
-    "captureInput": true,
-    "webContentsDebuggingEnabled": true,
-    "backgroundColor": "#020617"
-  },
-  "plugins": {
-    "SplashScreen": {
-      "launchShowDuration": 1200,
-      "backgroundColor": "#020617",
-      "showSpinner": false
-    }
-  }
+  "bundledWebRuntime": false
 }
-
-// === FILE 2: capacitor.config.ts ===
-import type { CapacitorConfig } from '@capacitor/cli';
-
-const config: CapacitorConfig = {
-  appId: 'com.aistudio.hanvietflashhud.kxmpzq',
-  appName: 'HánViệt FlashHUD',
-  webDir: 'dist',
-  bundledWebRuntime: false,
-  server: {
-    androidScheme: 'https',
-    cleartext: true,
-  },
-  android: {
-    allowMixedContent: true,
-    captureInput: true,
-    webContentsDebuggingEnabled: true,
-    backgroundColor: '#020617',
-  },
-};
-
-export default config;
 """.trimIndent()
         ),
 
         NativeCodeFileItem(
             id = "capacitor_package_json",
             fileName = "package.json",
-            platformBadge = "CAPACITOR DEPENDENCIES & SCRIPTS",
+            platformBadge = "CAPACITOR DEPENDENCIES & BUILD SCRIPTS",
             language = "JSON (Node.js / NPM)",
-            summary = "File package.json khai báo đầy đủ các thư viện @capacitor/core, @capacitor/cli, @capacitor/android và các câu lệnh tự động đồng bộ mã sang thư mục Android.",
+            summary = "File package.json có sẵn lệnh npm run build đảm bảo tạo thư mục dist/index.html và cài sẵn @capacitor/core, @capacitor/android, @capacitor/cli.",
             code = """
 {
-  "name": "hanviet-flashhud-video-studio",
+  "name": "hanviet-flashhud-app",
   "version": "1.0.0",
   "private": true,
-  "description": "HánViệt Studio — Sub-1000ms Game HUD Translator & AI Video Translator + Smart Lossless Merger",
+  "description": "HánViệt FlashHUD & AI Video Translator Studio",
   "scripts": {
-    "build": "mkdir -p dist && (test -f dist/index.html || echo '<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/><title>HánViệt FlashHUD</title></head><body style=\"background:#020617;color:#F8FAFC;font-family:sans-serif;padding:24px\"><h1>HánViệt Studio — AI Video Translator</h1></body></html>' > dist/index.html)",
+    "build": "mkdir -p dist && (test -f dist/index.html || echo '<!DOCTYPE html><html lang=\"vi\"><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"/><title>HánViệt FlashHUD</title></head><body style=\"margin:0;background:#020617;color:#F8FAFC;font-family:sans-serif;padding:24px\"><h2>HánViệt FlashHUD — AI Video Studio</h2><p>Smart Solid Masking 90% &amp; Lossless Video Merger</p></body></html>' > dist/index.html)",
+    "cap:init": "npx cap init \"HanViet\" \"com.hanviet.app\" --web-dir dist",
     "cap:add:android": "npx cap add android",
-    "cap:sync": "npx cap sync android",
-    "cap:copy": "npx cap copy android",
-    "cap:open": "npx cap open android",
-    "android:apk:debug": "cd android && ./gradlew assembleDebug",
-    "android:apk:release": "cd android && ./gradlew assembleRelease"
+    "cap:sync": "npx cap sync",
+    "apk:debug": "cd android && chmod +x ./gradlew && ./gradlew assembleDebug --no-daemon"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",
-    "@capacitor/app": "^6.0.2",
-    "@capacitor/core": "^6.2.0",
-    "@capacitor/filesystem": "^6.0.2",
-    "@capacitor/preferences": "^6.0.3",
-    "@capacitor/share": "^6.0.2",
-    "@capacitor/splash-screen": "^6.0.3",
-    "@capacitor/status-bar": "^6.0.2"
+    "@capacitor/core": "^6.2.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.0",
-    "typescript": "^5.6.3"
+    "@capacitor/cli": "^6.2.0"
   }
 }
 """.trimIndent()

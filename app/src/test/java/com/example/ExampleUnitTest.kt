@@ -251,13 +251,14 @@ class ExampleUnitTest {
         val pkgJson = files.firstOrNull { it.id == "capacitor_package_json" }
 
         assertNotNull(workflow)
-        assertTrue(workflow!!.code.contains("npx cap add android"))
+        assertTrue(workflow!!.code.contains("npx cap init \"HanViet\" \"com.hanviet.app\" --web-dir dist"))
+        assertTrue(workflow.code.contains("npx cap add android"))
         assertTrue(workflow.code.contains("npx cap sync"))
-        assertTrue(workflow.code.contains("assembleDebug assembleRelease"))
-        assertTrue(workflow.code.contains("actions/upload-artifact@v4"))
+        assertTrue(workflow.code.contains("./gradlew assembleDebug --no-daemon"))
+        assertTrue(workflow.code.contains("HanViet-FlashHUD-APK"))
 
         assertNotNull(capConfig)
-        assertTrue(capConfig!!.code.contains("com.aistudio.hanvietflashhud.kxmpzq"))
+        assertTrue(capConfig!!.code.contains("com.hanviet.app"))
 
         assertNotNull(pkgJson)
         assertTrue(pkgJson!!.code.contains("@capacitor/android"))

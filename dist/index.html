@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>HánViệt Studio — AI Video Translator &amp; FlashHUD</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --surface: #0F172A;
+      --elevated: #1E293B;
+      --border: #334155;
+      --primary: #3B82F6;
+      --indigo: #818CF8;
+      --emerald: #10B981;
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--elevated);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand { font-weight: 700; font-size: 16px; }
+    .sub { font-size: 11px; color: var(--muted); }
+    .pill-btn {
+      background: rgba(59, 130, 246, 0.16);
+      color: #fff;
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .video-stage {
+      position: relative;
+      background: linear-gradient(180deg, #090D16 0%, #111827 65%, #020617 100%);
+      height: 230px;
+      margin: 12px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px;
+    }
+    .sub-mask {
+      background: rgba(2, 6, 23, 0.90);
+      border: 1.5px solid var(--primary);
+      border-radius: 12px;
+      padding: 10px 14px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 15px;
+      color: #FFFFFF;
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+    }
+    .sheet {
+      flex: 1;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      padding: 16px;
+    }
+    .card {
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      width: 100%;
+      cursor: pointer;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--primary); }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="brand">HánViệt Studio</div>
+      <div class="sub">Dịch Video AI &amp; Che Phụ Đề Gốc 90%</div>
+    </div>
+    <button class="pill-btn" onclick="alert('Bước 1: Chọn Video\nBước 2: Bấm Dịch AI (Che chữ gốc 90%)\nBước 3: Kéo thả phụ đề & Xuất MP4')">❓ Hướng dẫn</button>
+  </header>
+
+  <div class="video-stage" id="stage">
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);">
+      <span>Tập 1: Phàm Nhân Tu Tiên</span>
+      <span id="maskBadge" style="color:var(--indigo);">Che chữ gốc: 90%</span>
+    </div>
+    <div class="sub-mask" id="subBox">
+      "Bản tọa đợi ngày này đã ba trăm năm, hôm nay định đoạt sinh tử!"
+    </div>
+  </div>
+
+  <div class="sheet">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;font-weight:600;">
+        <span>Độ mờ nền chữ (Background Opacity)</span>
+        <span id="opacityVal" style="color:var(--primary);">90%</span>
+      </div>
+      <input type="range" min="0" max="100" value="90" oninput="updateMask(this.value)" />
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+        Mặc định 90% giúp che kín hoàn toàn chữ tiếng Trung gốc bên dưới.
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="btn-primary" onclick="translateDemo()">✨ Dịch AI &amp; Che Phụ Đề Gốc Ngay</button>
+    </div>
+  </div>
+
+  <script>
+    function updateMask(val) {
+      document.getElementById('opacityVal').innerText = val + '%';
+      document.getElementById('maskBadge').innerText = 'Che chữ gốc: ' + val + '%';
+      document.getElementById('subBox').style.background = 'rgba(2, 6, 23, ' + (val / 100) + ')';
+    }
+    const lines = [
+      '"Bản tọa đợi ngày này đã ba trăm năm, hôm nay định đoạt sinh tử!"',
+      '"Sư tôn cẩn thận! Huyết Ma Tông đã phong tỏa hộ sơn đại trận!"',
+      '"Cửu Thiên Huyền Lôi Kiếm — Phá vạn pháp cho ta!"'
+    ];
+    let idx = 0;
+    function translateDemo() {
+      idx = (idx + 1) % lines.length;
+      document.getElementById('subBox').innerText = lines[idx];
+    }
+  </script>
+</body>
+</html>
