@@ -1,4 +1,4 @@
-name: Build Android APK from Scratch (Capacitor CI/CD)
+name: Build Android APK
 
 on:
   push:
@@ -7,6 +7,9 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-apk:
     name: Build HanViet-FlashHUD-APK
@@ -14,60 +17,54 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: 1. Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 2. Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 3. Setup Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
-      - name: 4. Setup Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy "tools" package is no longer available from Google.
+          packages: 'platform-tools platforms;android-36.1 build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
 
-      - name: 5. Install SDK packages (platform 34 + build-tools)
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Matches the wrapper properties and AGP 9.1.1.
+          # This source export does not include the wrapper launcher/JAR.
+          gradle-version: '9.3.1'
+
+      - name: Prepare debug signing key
+        # app/build.gradle.kts expects this ignored file at the project root.
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -noprompt -keystore debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
-      - name: 6. Install dependencies and prepare web assets
-        run: |
-          npm install --legacy-peer-deps
-          npm run build --if-present
-          mkdir -p dist
-          test -f dist/index.html || echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HanViet</title></head><body><h2>HanViet</h2></body></html>' > dist/index.html
+      - name: Test and build native Android app
+        run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
 
-      - name: 7. Capacitor init, add Android, sync
-        run: |
-          rm -rf android capacitor.config.json capacitor.config.ts
-          npx cap init "HanViet" "com.hanviet.app" --web-dir dist
-          npx cap add android
-          npx cap sync android
-
-      - name: 8. Build debug APK
-        working-directory: android
-        run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: 9. Upload APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: HanViet-FlashHUD-APK
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload Gradle reports on failure
+      - name: Upload build and test reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: gradle-reports
-          path: android/app/build/reports
+          path: app/build/reports
           if-no-files-found: ignore
