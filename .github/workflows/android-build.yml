@@ -1,0 +1,144 @@
+name: Build Android APK (Capacitor + Native Gradle)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Cho phép bấm nút "Run workflow" thủ công ngay trên tab Actions của GitHub
+
+jobs:
+  build-android-apk:
+    name: Build Debug & Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Tải mã nguồn từ GitHub Repository
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
+
+      # 2. Cài đặt Node.js 20 để chạy Web build & Capacitor CLI
+      - name: 2. Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3. Cài đặt Java JDK 17 (Chuẩn cho Android Gradle Plugin & Capacitor 6)
+      - name: 3. Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 4. Cài đặt Android SDK & Build Tools
+      - name: 4. Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 5. Chấp nhận giấy phép Android SDK & cài đặt Platform 36 (nếu cần)
+      - name: 5. Accept Android SDK Licenses
+        run: |
+          yes | sdkmanager --licenses || true
+
+      # 6. Cài đặt dependencies Node.js, chạy lệnh Build Web và đồng bộ Capacitor
+      - name: 6. Build Web & Sync Capacitor Android
+        run: |
+          if [ -f "package.json" ]; then
+            echo "📦 Cài đặt các gói Node.js & Capacitor..."
+            npm install --legacy-peer-deps
+            echo "🌐 Chạy lệnh build Web (dist/)..."
+            npm run build
+            # Nếu dự án chưa có проект Android Native ở thư mục gốc và chưa có thư mục android/ của Capacitor:
+            if [ ! -f "settings.gradle.kts" ] && [ ! -f "settings.gradle" ]; then
+              if [ ! -d "android" ]; then
+                echo "🤖 Khởi tạo thư mục Android bằng Capacitor (npx cap add android)..."
+                npx cap add android
+              fi
+              echo "🔄 Đồng bộ mã Web vào Android (npx cap sync android)..."
+              npx cap sync android
+            else
+              echo "ℹ️ Phát hiện dự án Android ở thư mục gốc — đồng bộ tài nguyên Web nếu có..."
+              npx cap sync android || true
+            fi
+          fi
+
+      # 7. Chuẩn bị tệp.env và Keystore ký ứng dụng (Debug & Release)
+      - name: 7. Prepare .env & Signing Keystores
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
+        run: |
+          # Xác định thư mục chứa dự án Gradle (thư mục gốc hoặc thư mục android/ của Capacitor)
+          GRADLE_DIR="."
+          if [ ! -f "settings.gradle.kts" ] && [ ! -f "settings.gradle" ] && [ -d "android" ]; then
+            GRADLE_DIR="android"
+          fi
+          echo "GRADLE_DIR=$GRADLE_DIR" >> $GITHUB_ENV
+
+          # Đảm bảo tồn tại file .env để Secrets Gradle Plugin không báo lỗi
+          if [ -f "$GRADLE_DIR/.env.example" ] && [ ! -f "$GRADLE_DIR/.env" ]; then
+            cp "$GRADLE_DIR/.env.example" "$GRADLE_DIR/.env"
+          fi
+
+          # Khôi phục debug.keystore từ debug.keystore.base64 hoặc tạo mới bằng keytool
+          if [ -f "$GRADLE_DIR/debug.keystore.base64" ] && [ ! -f "$GRADLE_DIR/debug.keystore" ]; then
+            base64 -d "$GRADLE_DIR/debug.keystore.base64" > "$GRADLE_DIR/debug.keystore"
+          elif [ ! -f "$GRADLE_DIR/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$GRADLE_DIR/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          # Tạo khóa ký dự phòng my-upload-key.jks cho bản Release nếu chưa cấu hình khóa riêng
+          if [ ! -f "$GRADLE_DIR/my-upload-key.jks" ]; then
+            keytool -genkeypair -v \
+              -keystore "$GRADLE_DIR/my-upload-key.jks" \
+              -storepass "$STORE_PASSWORD" \
+              -alias upload \
+              -keypass "$KEY_PASSWORD" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=HanViet Studio,OU=Mobile,O=HanViet,L=HCMC,S=VN,C=VN"
+          fi
+
+      # 8. Dùng Gradle để biên dịch ra cả file Debug APK và Release APK
+      - name: 8. Build Debug & Release APK with Gradle
+        working-directory: ${{ env.GRADLE_DIR }}
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
+          else
+            gradle assembleDebug assembleRelease --no-daemon --stacktrace
+          fi
+
+      # 9. Upload file Debug APK (Cài đặt ngay trên mọi điện thoại) lên GitHub Artifacts
+      - name: 9. Upload Debug APK to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: HanViet-Studio-Debug-APK
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 30
+
+      # 10. Upload file Release APK lên GitHub Artifacts
+      - name: 10. Upload Release APK to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: HanViet-Studio-Release-APK
+          path: |
+            app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
+          retention-days: 30

@@ -242,5 +242,26 @@ class ExampleUnitTest {
         assertEquals(0.90f, defaultStyle.maskOpacity, 0.001f)
         assertEquals(AppDestination.VIDEO_STUDIO, AppDestination.entries.first())
     }
+
+    @Test
+    fun githubActionsAndCapacitorCatalog_containsCompleteWorkflowAndConfigs() {
+        val files = com.example.data.source.NativeCodeCatalog.files
+        val workflow = files.firstOrNull { it.id == "github_actions_android_yml" }
+        val capConfig = files.firstOrNull { it.id == "capacitor_config_json" }
+        val pkgJson = files.firstOrNull { it.id == "capacitor_package_json" }
+
+        assertNotNull(workflow)
+        assertTrue(workflow!!.code.contains("npx cap add android"))
+        assertTrue(workflow.code.contains("npx cap sync"))
+        assertTrue(workflow.code.contains("assembleDebug assembleRelease"))
+        assertTrue(workflow.code.contains("actions/upload-artifact@v4"))
+
+        assertNotNull(capConfig)
+        assertTrue(capConfig!!.code.contains("com.aistudio.hanvietflashhud.kxmpzq"))
+
+        assertNotNull(pkgJson)
+        assertTrue(pkgJson!!.code.contains("@capacitor/android"))
+    }
 }
+
 

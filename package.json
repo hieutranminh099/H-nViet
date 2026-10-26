@@ -1,0 +1,29 @@
+{
+  "name": "hanviet-flashhud-video-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HánViệt Studio — Sub-1000ms Game HUD Translator & AI Video Translator + Smart Lossless Merger",
+  "scripts": {
+    "build": "mkdir -p dist && (test -f dist/index.html || echo '<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/><title>HánViệt FlashHUD</title></head><body style=\"background:#020617;color:#F8FAFC;font-family:sans-serif;padding:24px\"><h1>HánViệt Studio — AI Video Translator</h1></body></html>' > dist/index.html)",
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npx cap sync android",
+    "cap:copy": "npx cap copy android",
+    "cap:open": "npx cap open android",
+    "android:apk:debug": "cd android && ./gradlew assembleDebug",
+    "android:apk:release": "cd android && ./gradlew assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/filesystem": "^6.0.2",
+    "@capacitor/preferences": "^6.0.3",
+    "@capacitor/share": "^6.0.2",
+    "@capacitor/splash-screen": "^6.0.3",
+    "@capacitor/status-bar": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "typescript": "^5.6.3"
+  }
+}

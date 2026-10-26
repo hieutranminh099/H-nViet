@@ -1,53 +1,105 @@
-# Kế Hoạch Đại Tu Toàn Diện UI/UX: Minimalist, Smart Solid Masking & One-Hand Friendly
+# Tích Hợp Capacitor & GitHub Actions Tự Động Build File `.APK` (CI/CD Pipeline)
 
-## 1. Xử Lý Triệt Để Lỗi Chữ Đè Nhau (Smart Solid & Backdrop Masking — Mặc Định 90%)
-- **Nguyên tắc hiển thị bắt buộc (Zero Text Overlap):**
-  - Trên cả **Video AI Studio (Live Preview)** và **Live HUD (Màn hình Game/App)**, tuyệt đối không vẽ thêm một lớp chữ tiếng Trung rời rạc nằm lộ liễu phía dưới hoặc chồng chéo với chữ tiếng Việt.
-  - Khi chế độ dịch hoạt động, hệ thống tự động tạo một **Hộp Che Nền Đặc (Smart Solid Mask Box)** hoặc **Dải Kính Mờ (Backdrop Blur Pill)** bao phủ khít toàn bộ vùng phụ đề gốc (`Bounding Box` / `Hardsub ROI`) với độ che phủ mặc định **90% (`maskOpacity = 0.90f`)**, che khuất hoàn toàn chữ tiếng Trung bên dưới trước khi in chữ tiếng Việt sắc nét lên trên.
-  - Chữ tiếng Trung gốc chỉ hiển thị khi người dùng chủ động nhấn giữ nút **"Nhìn bản gốc (Hold-to-Peek)"** hoặc kéo thanh trượt độ mờ nền về `0%`.
-- **Thanh trượt "Độ mờ nền chữ (Background Opacity)":**
-  - Đặt ngay trong ngăn kéo điều khiển dưới đáy với giá trị mặc định **90%** (`0% ➔ 100%`), cập nhật tức thì độ đục của lớp nền che chữ gốc trên cả Video Preview, Live HUD và mã xuất `.ASS` (`BackColour` alpha).
+Giải pháp trọn gói giúp đẩy mã nguồn ứng dụng **HánViệt Studio (FlashHUD & AI Video Translator)** lên GitHub và tự động biên dịch ra file cài đặt Android (`.apk`) thông qua **GitHub Actions** (hỗ trợ đồng thời cả dự án **Capacitor Web-to-Android** lẫn **Native Android Gradle**), kèm trung tâm sao chép cấu hình và hướng dẫn trực quan ngay trong tab **"Mã nguồn"**.
 
 ---
 
-## 2. Phong Cách Thiết Kế Tối Giản (Linear / Vercel / iOS Modern Dark Mode)
-- **Bảng màu Slate & Blue-500 / Indigo Pastel (`Color.kt` & `Theme.kt`):**
-  - Loại bỏ hoàn toàn viền xanh lá neon (`#10B981`) kiểu Terminal/Hacker cũ.
-  - **Nền chính (`Slate950`):** `#020617` / `#090D16` trầm dịu mắt.
-  - **Bề mặt thẻ (`Slate900` & `Slate800`):** `#0F172A` với viền mảnh tinh tế `#1E293B` (`1.dp`).
-  - **Nút hành động chính (`Primary Blue-500` & `Soft Indigo`):** `#3B82F6` (Blue-500) và `#6366F1` (Indigo-500) kết hợp chữ trắng tinh khiết (`#F8FAFC`).
-  - **Chữ mô tả phụ (`Slate400`):** `#94A3B8` dễ đọc, độ tương phản chuẩn WCAG AA.
-- **Typography chuẩn mực (`Type.kt`):**
-  - Loại bỏ hoàn toàn kiểu viết **CHỮ IN HOA TOÀN BỘ** ở các tiêu đề dài và đoạn mô tả.
-  - Sử dụng chữ viết hoa chữ cái đầu tự nhiên (Sentence case / Title case), kết hợp font không chân hiện đại (`Be Vietnam Pro` & `Space Grotesk`) với phân cấp kích thước rõ ràng.
-- **Phân cấp nút bấm & biểu tượng trực quan:**
-  - Nút quan trọng nhất (**"Tải video lên"**, **"Dịch AI ngay"**, **"Xuất video"**) dùng nút đặc màu `Blue-500` nổi bật kèm icon trực quan.
-  - Các tùy chọn phụ (`Hardsub OCR`, `Audio ASR`, `Kép OCR + ASR`) gom thành các **Chip nhỏ gọn** có thể cuộn ngang mượt mà.
-- **Thanh điều hướng dưới đáy (`NavigationBar`):**
-  - Mở mặc định vào phân hệ **Video AI** khi khởi động ứng dụng.
-  - Căn chỉnh 5 mục ngắn gọn, không bị cắt chữ: **`Video AI`**, **`Live HUD`**, **`Hiệu năng`**, **`Ngữ cảnh`**, **`Mã nguồn`** kèm khoảng đệm `WindowInsets.navigationBars` để không dính sát mép dưới điện thoại.
+## User Review & Critical Decisions
+
+> [!IMPORTANT]
+> Các quyết định cấu hình dưới đây đã được xác nhận theo lựa chọn của bạn ở bước làm rõ yêu cầu:
+
+- **Confirmed Decision 1 — Quy trình GitHub Actions Đa Chế Độ (Dual-Mode Capacitor + Native Android Gradle)**: File `.github/workflows/android-build.yml` sẽ tự động cài đặt Node.js, Java/Android SDK, kiểm tra và chạy lệnh build Web + đồng bộ Capacitor (`npx cap add android` / `npx cap sync`) khi phát hiện nhánh Web/Capacitor, đồng thời tự động giải mã `debug.keystore` và chạy Gradle để biên dịch trực tiếp dự án Android Native hiện tại.
+- **Confirmed Decision 2 — Xuất đồng thời cả `app-debug.apk` và `app-release.apk` lên GitHub Artifacts**: Quy trình CI/CD tự động tạo khóa ký dự phòng nếu chưa cấu hình GitHub Secrets, biên dịch cả bản **Debug APK** (cài đặt ngay trên mọi điện thoại Android không cần cấu hình phức tạp) và **Release APK**, sau đó tải lên **GitHub Artifacts** để tải về chỉ với 1 cú nhấp chuột.
+- **Confirmed Decision 3 — Lưu trực tiếp vào thư mục gốc Repository & Tích hợp vào tab "Mã nguồn"**: Toàn bộ các tệp cấu hình (`capacitor.config.json`, `capacitor.config.ts`, `package.json`, `.github/workflows/android-build.yml`, `GITHUB_APK_GUIDE.md`) vừa được tạo sẵn ở thư mục gốc của dự án để sẵn sàng đẩy lên GitHub, vừa hiển thị trực tiếp trong tab **"Mã nguồn"** kèm nút **Sao chép 1 chạm** và **Sơ đồ vị trí nút tải APK trong tab Actions**.
 
 ---
 
-## 3. Tính Năng "❓ Hướng Dẫn" (Interactive 3-Step Onboarding Modal)
-- **Nút `"❓ Hướng dẫn"` trên thanh TopAppBar:**
-  - Nằm ở góc phải trên cùng với thiết kế Pill tinh tế, dễ bấm (`>= 48dp`).
-- **Tự động hiển thị khi mới vào ứng dụng & khi bấm nút:**
-  - Hiển thị một **Modal (Bảng nổi bo góc `24.dp`)** trực quan gồm 3 bước kèm biểu tượng minh họa sắc nét:
-    1. **Bước 1 — Tải video cần dịch:** Chọn file video từ điện thoại hoặc dùng ngay bộ 4 tập phim ngắn mẫu có sẵn.
-    2. **Bước 2 — Bấm Dịch AI (Tự động che chữ gốc):** Chọn quét phụ đề hình ảnh (`OCR`) hoặc âm thanh (`ASR`). AI sẽ tự động phủ lớp nền đặc 90% che kín chữ tiếng Trung và thay bằng tiếng Việt.
-    3. **Bước 3 — Kéo thả & Xuất file / Lưu Cloud:** Dùng một ngón tay kéo phụ đề đến vị trí ưng ý, chỉnh độ mờ nền chữ và bấm **Xuất Lossless** hoặc **Lưu Cloud** để xem trên mọi thiết bị.
-  - Có nút **"Bắt đầu trải nghiệm ngay"** (màu `Blue-500`) và tùy chọn chuyển nhanh giữa các bước.
+## 1. Overview & Core Concept
+
+- **What It Does**:
+  1. Cung cấp đầy đủ bộ tệp cấu hình **Capacitor 6** (`capacitor.config.json`, `capacitor.config.ts`, `package.json` chứa `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`, `@capacitor/filesystem`, `@capacitor/share`, `@capacitor/preferences`).
+  2. Thiết lập quy trình tự động hóa **GitHub Actions** (`.github/workflows/android-build.yml`) kích hoạt mỗi khi `git push` lên nhánh `main`/`master` hoặc bấm nút chạy thủ công (`workflow_dispatch`).
+  3. Bổ sung giao diện **"Hướng dẫn Đẩy GitHub & Tải File APK từ GitHub Actions"** ngay trong tab **Mã nguồn** của ứng dụng để người dùng có thể tra cứu các lệnh Git và vị trí nút tải file `.apk` bất cứ lúc nào.
+- **Target Audience / Persona**: Người dùng và nhà phát triển muốn đóng gói ứng dụng thành file `.apk` cài đặt lên điện thoại thật hoàn toàn miễn phí trên máy chủ đám mây của GitHub mà không cần tự cài đặt Android Studio nặng nề trên máy tính cá nhân.
+- **Key Value**: Chỉ cần đẩy code lên GitHub, hệ thống tự động cài môi trường, đồng bộ Capacitor & Gradle, đóng gói file `.apk` và xuất đường dẫn tải về tại mục **Artifacts**.
 
 ---
 
-## 4. Bố Cục "One-Hand Friendly" Với Ngăn Kéo Dưới Đáy (Bottom Sheet)
-- **Thanh chuyển Tab con vuốt ngang mượt mà (Swipeable Pill Tabs):**
-  - Thay thế các chip dài bị cắt chữ bằng dải **Segmented Pill Tabs** gọn gàng: `Xem & Sửa` • `Ghép Lô AI` • `Xuất Video` • `Kho Cloud` • `Tài Khoản AI`.
-- **Cố định vùng xem Video / Live HUD ở nửa trên màn hình:**
-  - Khung phát Video (và màn hình Live HUD) luôn nằm gọn ở nửa trên màn hình với thanh điều khiển phát/tua tối giản.
-- **Ngăn kéo điều khiển dưới đáy (Collapsible Tabbed Bottom Sheet):**
-  - Đặt ở nửa dưới màn hình trong tầm với của ngón tay cái, có nút **Thu gọn / Mở rộng** và 3 thẻ chức năng rõ ràng:
-    1. **`Dịch & Tập phim`:** Nút **"Tải video lên"**, **"Dịch AI ngay"**, chọn tập phim và chế độ quét (`OCR` / `ASR`).
-    2. **`Kiểu chữ & Nền che (90%)`:** Thanh trượt **"Độ mờ nền chữ (Background Opacity)"** (mặc định `90%`), thanh trượt cỡ chữ, chế độ nền che (`Nền đặc Solid Box` / `Làm mờ Blur`) và chọn màu chữ.
-    3. **`Lời thoại (Timeline)`:** Danh sách câu thoại theo mốc thời gian mili-giây để chạm nhảy khung hình hoặc sửa nhanh từ ngữ.
+## 2. User Experience & Visual Design
+
+- **Key User Flows**:
+  1. **Truy cập Tab "Mã nguồn" trên thanh điều hướng dưới cùng**:
+     - Người dùng thấy ngay thẻ **"GitHub Actions & Capacitor APK Builder"** ở đầu màn hình với hướng dẫn 3 bước ngắn gọn: *(1) Đẩy code lên GitHub ➔ (2) Mở tab Actions chờ tích xanh ➔ (3) Cuộn xuống mục Artifacts bấm tải `HanViet-Studio-Debug-APK`*.
+  2. **Chọn và Sao chép từng file cấu hình**:
+     - Các chip chọn file gồm: `.github/workflows/android-build.yml`, `capacitor.config.json`, `capacitor.config.ts`, `package.json`, `GITHUB_APK_GUIDE.md` cùng các mã nguồn hiện có.
+     - Nút **"Sao chép"** và **"Chia sẻ"** giúp xuất nhanh từng đoạn mã hoặc sao chép trọn bộ câu lệnh `git init / git push`.
+- **Visual Identity & Theme**:
+  - Giữ vững phong cách **Minimalist Modern Dark Mode (Linear / Vercel / iOS Dark)**:
+    - Nền chính `--background`: `Slate-950` (`#020617`)
+    - Thẻ nổi `--card`: `Slate-900` (`#0F172A`) với đường viền mảnh `1.dp` `Slate-800` (`#1E293B`)
+    - Điểm nhấn hành động chính `--primary`: `PrimaryBlue` (`#3B82F6`) và `SoftIndigo` (`#818CF8`)
+  - Phông chữ **Be Vietnam Pro** rõ nét cho phần hướng dẫn từng bước và khối mã nguồn trình bày gọn gàng, có thanh cuộn ngang chống tràn màn hình nhỏ.
+
+---
+
+## 3. Key Product Decisions & Trade-Offs
+
+- **Decision 1: Quy trình GitHub Actions Tự Động Hóa Kép (Capacitor Sync + Native Android Gradle)**
+  - *Chosen Approach*: Trong `.github/workflows/android-build.yml`, thiết lập đầy đủ các bước:
+    1. `actions/checkout@v4`
+    2. `actions/setup-node@v4` (Node.js 20) & `actions/setup-java@v4` (JDK 17 Temurin) + `android-actions/setup-android@v3`
+    3. Cài đặt dependencies & chạy build Web (`npm install && npm run build`), đồng bộ sang Android bằng Capacitor (`npx cap add android || true` và `npx cap sync android`) nếu dùng cấu trúc Web, hoặc biên dịch trực tiếp thư mục `app/` hiện có.
+    4. Tự động khôi phục `debug.keystore` từ `debug.keystore.base64` (hoặc tạo bằng `keytool`) và tạo keystore dự phòng cho bản Release để Gradle không bao giờ báo lỗi thiếu khóa ký trên máy chủ GitHub.
+    5. Thực thi `./gradlew assembleDebug assembleRelease` (hoặc `gradle assembleDebug assembleRelease`) và dùng `actions/upload-artifact@v4` đẩy cả `HanViet-Studio-Debug-APK` và `HanViet-Studio-Release-APK` lên giao diện GitHub.
+  - *Why*: Đảm bảo dù người dùng đẩy kho mã nguồn hiện tại hay kết hợp thêm giao diện Web/Capacitor, GitHub Actions đều chạy thành công 100% và sinh ra file `.apk` tải được ngay.
+
+---
+
+## 4. Technical Architecture & Data Strategy *(Technical Reference)*
+
+### Architecture & CI/CD Pipeline Diagram
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                    MÁY TÍNH CÁ NHÂN / AI STUDIO EXPORT                    │
+│  git init ➔ git add . ➔ git commit ➔ git push -u origin main              │
+└─────────────────────────────────────┬─────────────────────────────────────┘
+                                      │
+                                      ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│              GITHUB ACTIONS RUNNER (ubuntu-latest Cloud VM)               │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ Bước 1: Setup Node.js 20 + Java JDK 17 (Temurin) + Android SDK      │  │
+│  └──────────────────────────────────┬──────────────────────────────────┘  │
+│                                     ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ Bước 2: Capacitor Pipeline                                          │  │
+│  │  • npm install && npm run build                                     │  │
+│  │  • npx cap add android (nếu chưa có) & npx cap sync android         │  │
+│  └──────────────────────────────────┬──────────────────────────────────┘  │
+│                                     ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ Bước 3: Khôi phục Keystore & Biên dịch Gradle                       │  │
+│  │  • Giải mã debug.keystore & khởi tạo release keystore dự phòng      │  │
+│  │  • Chạy gradle assembleDebug & gradle assembleRelease               │  │
+│  └──────────────────────────────────┬──────────────────────────────────┘  │
+│                                     ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ Bước 4: Upload GitHub Artifacts (actions/upload-artifact@v4)        │  │
+│  │  • 📦 HanViet-Studio-Debug-APK (app-debug.apk — Cài đặt ngay)       │  │
+│  │  • 📦 HanViet-Studio-Release-APK (app-release.apk)                  │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### Interactive Component & State Mapping
+
+- **Kho Mã Nguồn (`NativeCodeCatalog`)**:
+  - Bổ sung 4 mục tài liệu & cấu hình mới ở đầu danh sách:
+    1. `.github/workflows/android-build.yml` (GitHub Actions Workflow hoàn chỉnh).
+    2. `capacitor.config.json` & `capacitor.config.ts` (Cấu hình Capacitor chuẩn với `appId: "com.aistudio.hanvietflashhud.kxmpzq"` và `appName: "HánViệt FlashHUD"`).
+    3. `package.json` (Khai báo đầy đủ `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`, scripts `build`, `cap:init`, `cap:sync`, `apk:debug`).
+    4. `GITHUB_APK_GUIDE.md` (Hướng dẫn từng bước đẩy code lên GitHub và sơ đồ vị trí nút tải file `.apk` trong tab **Actions -> Artifacts**).
+- **Màn hình Xuất Mã Nguồn (`NativeCodeExporterScreen`)**:
+  - Thêm thẻ trực quan **"Hướng dẫn nhanh: Đẩy GitHub & Tải APK (3 Bước)"** kèm nút sao chép nhanh cụm lệnh `git push` để người dùng thực hiện ngay lập tức.

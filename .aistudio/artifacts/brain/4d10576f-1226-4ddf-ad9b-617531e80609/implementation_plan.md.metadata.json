@@ -1,6 +1,6 @@
 {
-  "summary":  "Bản thiết kế Đại Tu Toàn Diện UI/UX theo phong cách Minimalist Dark Mode (Linear / Vercel / iOS Dark), xử lý triệt để lỗi chữ đè nhau bằng Smart Solid/Backdrop Masking (mặc định độ mờ nền 90%), bổ sung Modal Hướng Dẫn Sử Dụng 3 Bước tự động mở lần đầu và bố cục One-Hand Friendly với Ngăn Kéo Điều Khiển Dưới Đáy (Collapsible Tabbed Bottom Sheet).",
-  "updatedAt":  "2026-10-26T05:26:37.596695319Z",
+  "summary":  "Implementation plan for integrating Capacitor configuration files (capacitor.config.json, capacitor.config.ts, package.json), a dual-mode GitHub Actions APK CI/CD workflow (.github/workflows/android-build.yml) building both Debug and Release APKs with GitHub Artifacts upload, and an interactive GitHub Actions & Capacitor APK Export Guide inside the Mã nguồn tab.",
+  "updatedAt":  "2026-10-26T06:04:05.316971813Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
