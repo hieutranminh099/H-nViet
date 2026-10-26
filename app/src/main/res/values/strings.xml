@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">HánViệt FlashHUD</string>
+    <string name="hud_subtitle">Sub-1000ms Real-Time Screen OCR &amp; Context AI</string>
+    <string name="tab_live_studio">Live HUD</string>
+    <string name="tab_benchmark">Benchmark</string>
+    <string name="tab_context_keys">Context &amp; Keys</string>
+    <string name="tab_code_exporter">Native Code</string>
+    <string name="action_hold_to_peek">Giữ để Nhìn Xuyên Thấu (0% Alpha)</string>
+    <string name="action_translate_now">Quét &amp; Dịch Ngay</string>
+    <string name="action_toggle_overlay">Bật/Tắt Nút Nổi Overlay</string>
+    <string name="action_run_benchmark">Chạy Kiểm Thử Toàn Trình (&lt;1000ms)</string>
+    <string name="security_prototype_warning">Security Warning: API keys are packaged via BuildConfig for prototype testing. Do not share this APK publicly.</string>
+</resources>
