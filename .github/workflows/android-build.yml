@@ -2,113 +2,72 @@ name: Build Android APK from Scratch (Capacitor CI/CD)
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   pull_request:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
   build-apk:
     name: Build HanViet-FlashHUD-APK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      # 1. Tải mã nguồn từ GitHub Repository
-      - name: 1. Checkout Repository
+      - name: 1. Checkout
         uses: actions/checkout@v4
 
-      # 2. Thiết lập môi trường Node.js 20
       - name: 2. Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 3. Thiết lập môi trường Java JDK 17 (Temurin)
-      - name: 3. Setup Java JDK 17
+      - name: 3. Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      # 4. Thiết lập Android SDK
       - name: 4. Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Tự động cài đặt thư viện (npm install) và build mã nguồn Web (npm run build)
-      - name: 5. Install Dependencies & Build Web Assets
+      - name: 5. Install SDK packages (platform 34 + build-tools)
         run: |
-          if [ ! -f "package.json" ]; then
-            npm init -y
-          fi
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: 6. Install dependencies and prepare web assets
+        run: |
           npm install --legacy-peer-deps
-          npm run build --if-present || true
-
-          # Nếu dự án xuất ra thư mục build/ thay vì dist/, tự động đồng bộ sang dist/
-          if [ ! -d "dist" ] && [ -d "build" ] && [ -f "build/index.html" ]; then
-            cp -r build dist
-          fi
-
-          # Đảm bảo thư mục dist/ và dist/index.html luôn tồn tại hợp lệ trước khi chạy Capacitor
+          npm run build --if-present
           mkdir -p dist
-          if [ ! -f "dist/index.html" ]; then
-            if [ -f "index.html" ]; then
-              cp index.html dist/index.html
-            else
-              cat << 'EOF' > dist/index.html
-          <!DOCTYPE html>
-          <html lang="vi">
-          <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-            <title>HánViệt FlashHUD — AI Video Studio</title>
-            <style>
-              body { margin: 0; background: #020617; color: #F8FAFC; font-family: system-ui, -apple-system, sans-serif; padding: 20px; }
-              .card { background: #0F172A; border: 1px solid #1E293B; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
-              .btn { background: #3B82F6; color: #FFF; border: none; border-radius: 10px; padding: 12px 16px; font-weight: 600; width: 100%; }
-            </style>
-          </head>
-          <body>
-            <h2>HánViệt Studio</h2>
-            <div class="card">
-              <p>Trình Dịch Video AI &amp; Che Phụ Đề Gốc (Smart Solid Masking 90%)</p>
-              <button class="btn">Bắt đầu Dịch Video AI</button>
-            </div>
-          </body>
-          </html>
-          EOF
-            fi
-          fi
+          test -f dist/index.html || echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HanViet</title></head><body><h2>HanViet</h2></body></html>' > dist/index.html
 
-      # 6. Cài đặt Capacitor CLI và Android Core ngay trên máy chủ ảo
-      - name: 6. Install Capacitor Core, Android & CLI
-        run: |
-          npm i @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
-          npm i -D @capacitor/cli@6 --legacy-peer-deps
-
-      # 7. Khởi tạo từ số 0 (Build from Scratch) và thêm nền tảng Android (sinh ra ./gradlew chuẩn)
-      - name: 7. Initialize Capacitor & Add Android Platform from Scratch
+      - name: 7. Capacitor init, add Android, sync
         run: |
           rm -rf android capacitor.config.json capacitor.config.ts
           npx cap init "HanViet" "com.hanviet.app" --web-dir dist
           npx cap add android
-          npx cap sync
+          npx cap sync android
 
-      # 8. Cấp quyền thực thi cho gradlew và Biên dịch ra file APK
-      - name: 8. Grant Permission & Build Debug APK with Gradlew
+      - name: 8. Build debug APK
+        working-directory: android
         run: |
-          cd android
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      # 9. Đẩy file APK lên GitHub Artifacts với tên HanViet-FlashHUD-APK
-      - name: 9. Upload HanViet-FlashHUD-APK to GitHub Artifacts
+      - name: 9. Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: HanViet-FlashHUD-APK
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload Gradle reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-reports
+          path: android/app/build/reports
+          if-no-files-found: ignore
